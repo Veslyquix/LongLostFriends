@@ -35,24 +35,30 @@ NothingToEnd:
 ldr r0, =HelpBoxFlashIconProc
 mov r1, #3 @ root 3 
 blh ProcStart 
+mov r1, #0 
+str r1, [r0, #0x34] @ do not pause 
 
 mov r0, r4 
 pop {r1} 
 bx r1 
 .ltorg 
-
+.equ ProcGoto, 0x8002F24 
 .global HelpBoxFlashIcon
 .type HelpBoxFlashIcon, %function 
 HelpBoxFlashIcon:
 push {r4, lr} 
 mov r4, r0 
+ldr r0, [r4, #0x34] @ immediately idle 
+cmp r0, #0 
+bne Idle 
 
 ldr r0, =0x8A00A98 @ HelpBoxControl
 blh ProcFind 
 cmp r0, #0 
 bne FlashIconIfDoneScrolling
 mov r0, r4 
-blh BreakProcLoop 
+mov r1, #2 @ exit 
+blh ProcGoto 
 b Exit 
 FlashIconIfDoneScrolling: 
 ldr r0, =0x8A01628 @ HelpBoxTextScroll
@@ -61,75 +67,76 @@ cmp r0, #0
 bne Idle 
 
 bl DrawTheSprite 
-
+mov r0, r4 
+mov r1, #1
+blh ProcGoto 
+b Exit 
+Idle: 
+mov r0, #0 
+str r0, [r4, #0x34] @ do not immediately idle next time 
+mov r0, r4 
+mov r1, #0 
+blh ProcGoto 
 
 Exit: 
-Idle: 
-
 pop {r4} 
 pop {r0} 
 bx r0 
 .ltorg 
 
+
 // https://github.com/FireEmblemUniverse/fireemblem8u/blob/015f95751ef4d526c08bc424e1c5d6dba9d3c88d/src/scene.c#L1583
 // int frame = (GetGameClock() / 2) & 0xf;
 // https://github.com/FireEmblemUniverse/fireemblem8u/blob/015f95751ef4d526c08bc424e1c5d6dba9d3c88d/src/scene.c#L1777
 // gBG0TilemapBuffer + TILEMAP_INDEX(sTalkState->xText, sTalkState->yText + 2 * i)
-.equ sTalkStateCore, 0x3000048 
+.equ GetLastHelpBoxInfo, 0x80895A8 
+.equ HelpBoxControl, 0x8A00A98 
+.equ sMutableHbi, 0x203E768 
+.equ HelpTextHandle, 0x203E7C4 
+.equ PutSprite, 0x80053E8 
+.equ gPressKeyArrowSpriteLut, 0x8591430 
+.equ GetGameClock, 0x8000D28 
 DrawTheSprite: 
-push {r4, lr} 
-
-mov r0, #0 
-mov r1, #0 
-
-mov r2, #4 @ blue triangle 
-
-mov r3, r2 @ VRAM Tile 
-
-lsl r0, #4 @ 16 pixels per coord 
-lsl r1, #4 
-
-
-@ldr r2, =0x202BCBC @(gCurrentRealCameraPos )	@{U}
-@@ldr r2, =0x202BCB8 @(gCurrentRealCameraPos )	@{J}
-@ldrh r2, [r2]
-@sub r0, r2
-@ldr r2, =0x202BCBC @(gCurrentRealCameraPos )	@{U}
-@@ldr r2, =0x202BCB8 @(gCurrentRealCameraPos )	@{J}
-@ldrh r2, [r2, #2] 
-@sub r1, r2
-
-lsl r0, #23 @ only 9 bits used for coords 
-lsr r0, #23 
-lsl r1, #24 
-lsr r1, #24 
-
-
-mov r2, #0 @ 0, 1, 2, or 3 as valid here?
-		@ probably 8, 16, 32, and 64 pixel squares 
-lsl r2, #0xe @ bits E-F determine size 
-orr r0, r2                    @ Sprite size, 8x8
-
-@mov r2, #0x4 @ blend bit
-@lsl r2, #8 
-@orr r1, r2 
-@ r1 also has sprite shape (default is square, but can also be horizontal or vertical rectangle) 
+push {r4-r6, lr} 
 
 
 
-@mov r3, r3 @ Vram tile 
-mov r2, #16 @ palette # 16 - icon palette 
-lsl r2, #12 @ bits 12-15 
-orr r3, r2 @ palette | flips | tile 
 
-@mov r2, #2 
-@lsl r2, #10 
-@orr r3, r2 @ priority 2 (display above unit sprites but below battle stats with anims off etc) 
+ldr r0, =HelpBoxControl
+blh ProcFind 
+ldrh r4, [r0, #0x3C] @ x 
+ldrh r5, [r0, #0x3E] @ y 
+ldrh r2, [r0, #0x34] @ width 
+ldrh r3, [r0, #0x36] @ height 
 
-ldr r2, =gObj_8x8 
-blh PushToSecondaryOAM, r4 
+add r4, r2 
+add r5, r3 
+sub r4, #8 
+sub r5, #8 @ bottom right of the help box 
 
-pop {r4} 
+
+blh GetGameClock 
+lsr r0, #1 
+mov r1, #0xF 
+and r0, r1 
+lsl r0, #2 
+
+
+ldr r6, =gPressKeyArrowSpriteLut
+ldr r6, [r6, r0] 
+
+@PutSprite(0, proc->unk64, proc->unk66, gPressKeyArrowSpriteLut[frame], 4);
+sub sp, #4 
+mov r0, #4 @ vram tile 
+str r0, [sp] 
+mov r0, #0 @ priority 
+mov r1, r4 
+mov r2, r5 
+mov r3, r6 
+blh PutSprite, r4
+add sp, #4 
+
+pop {r4-r6} 
 pop {r0} 
 bx r0 
 .ltorg 

@@ -13,13 +13,25 @@
 @.equ HelpTextHandles, 0x203E790	@{J}
 .equ ProcFind, 0x8002e9c		@{U}
 @.equ ProcFind, 0x8002DEC		@{J}
-
+.equ HelpBoxFlashIconProc, ProcExceptionsList+4 
 push {r4-r7, lr} 
+
+push {r0-r2} 
+ldr r0, HelpBoxFlashIconProc 
+blh ProcFind 
+cmp r0, #0 
+beq DoNothing 
+add r0, #0x34 
+mov r1, #1 
+str r0, [r1] 
+DoNothing: 
+pop {r0-r2} 
+
 
 ldr r5, =0x10000D8 @ Vanilla uses this 
 ldr r6, =0x44444444
 
-@ mov r0, r4 
+
 @ add r0, #0x18 
 blh InitVramRow 
 
@@ -99,5 +111,6 @@ bx r0
 
 
 .ltorg 
+.align 4 
 ProcExceptionsList: 
 

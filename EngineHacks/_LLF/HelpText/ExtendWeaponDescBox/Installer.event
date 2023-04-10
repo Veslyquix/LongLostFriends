@@ -34,6 +34,7 @@ ALIGN 4
 InitItemDescVram: 
 #incbin "InitItemDescVram.dmp" 
 POIN ProcExceptionsList
+POIN HelpBoxFlashIconProc
 
 ALIGN 4 
 InitProcTextHandles:
@@ -63,8 +64,8 @@ ORG $8A126		//{U}
 SHORT $46C0 
 callHackNew(InitItemDescVram|1)
 SHORT $46C0 $46C0 $46C0 
-PROTECT $8A126 $8A126+28		//{U}
-//PROTECT $8C436 $8C436+28		//{J}
+PROTECT $8A126 $8A126+20		//{U}
+//PROTECT $8C436 $8C436+20		//{J}
 
 ORG $8A064		//{U}
 //ORG $8C374		//{J}
